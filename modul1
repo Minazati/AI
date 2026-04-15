@@ -1,0 +1,234 @@
+1).
+
+from collections import deque
+
+def water_jug_bfs(cap1, cap2, target):
+    # 1. Buat antrian (queue)
+    queue = deque([(0, 0, [])])
+    # 2. Buat set untuk mencatat yang sudah dikunjungi
+    visited = set()
+
+    # 3. Selama antrean tidak kosong
+    while queue:
+        # a. Ambil data dari depan (popleft)
+        j1, j2, path = queue.popleft()
+
+        # b. Jika target tercapai
+        if j1 == target or j2 == target:
+            return path + [(j1, j2)]
+
+        # c. Jika belum dikunjungi
+        if (j1, j2) not in visited:
+            visited.add((j1, j2))
+
+            # d. Definisikan kemungkinan aksi
+            moves = [
+                (cap1, j2), (j1, cap2),  # Isi
+                (0, j2), (j1, 0),        # Kosongkan
+                (j1 - min(j1, cap2 - j2), j2 + min(j1, cap2 - j2)), # Tuang 1 ke 2
+                (j1 + min(j2, cap1 - j1), j2 - min(j2, cap1 - j1))  # Tuang 2 ke 1 (KOMA DITAMBAHKAN DI SINI)
+            ]
+
+            # e. Masukkan hasil aksi ke belakang antrean
+            for m in moves:
+                if m not in visited:
+                    queue.append((m[0], m[1], path + [(j1, j2)]))
+
+    return None # Pindah ke luar while
+
+# --- EKSEKUSI DI LUAR FUNGSI (Indentasi di nol) ---
+print("===SOLUSI BFS (OPSIONAL)===")
+solusi_bfs = water_jug_bfs(5, 3, 4)
+
+if solusi_bfs:
+    for i, step in enumerate(solusi_bfs): # Perbaikan dari numerate ke enumerate
+        print(f"Langkah {i}: {step}")
+else:
+    print("Tidak ada solusi.")
+
+
+
+
+2).
+
+import heapq  # library untuk priority queue (antrian prioritas)
+
+# State tujuan (goal state)
+GOAL = (1, 2, 3, 4, 5, 6, 7, 8, 0)  # 0 = kotak kosong
+
+# Fungsi heuristic: Manhattan Distance
+def get_manhattan_distance(state):
+    distance = 0
+    for i in range(len(state)):
+        value = state[i]
+        if value != 0:
+            # posisi sekarang
+            current_row = i // 3
+            current_col = i % 3
+
+            # posisi seharusnya di goal
+            # Angka 1 di index 0, Angka 2 di index 1, dst.
+            target_row = (value - 1) // 3
+            target_col = (value - 1) % 3
+
+            # hitung jarak Manhattan
+            distance += abs(current_row - target_row) + abs(current_col - target_col)
+    return distance
+
+# Fungsi untuk mencari semua kemungkinan langkah
+def get_neighbors(state):
+    neighbors = []
+    idx = state.index(0)  # cari posisi kosong (0)
+    row = idx // 3
+    col = idx % 3
+
+    # arah gerakan: atas, bawah, kiri, kanan
+    moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+    for dr, dc in moves:
+        nr = row + dr
+        nc = col + dc
+
+        # cek apakah masih di dalam grid 3x3
+        if 0 <= nr < 3 and 0 <= nc < 3:
+            neighbor_list = list(state)
+            new_idx = nr * 3 + nc
+
+            # tukar posisi kosong dengan angka di sebelahnya
+            neighbor_list[idx], neighbor_list[new_idx] = neighbor_list[new_idx], neighbor_list[idx]
+            neighbors.append(tuple(neighbor_list))
+
+    return neighbors  # SEBELUMNYA: Salah karena di dalam loop, SEKARANG: Sudah benar di luar loop
+
+# Fungsi utama A*
+def solve_8_puzzle(start_state):
+    start_h = get_manhattan_distance(start_state)
+
+    # priority queue berisi (f, g, state, path)
+    # f = total cost (g + h), g = jumlah langkah dari awal
+    pq = [(start_h, 0, start_state, [])]
+
+    # visited untuk menyimpan biaya terkecil mencapai suatu state
+    visited = {start_state: 0}
+
+    while pq:
+        # ambil state dengan nilai f terkecil
+        f, g, current, path = heapq.heappop(pq)
+
+        # jika sudah sampai goal
+        if current == GOAL:
+            return path + [current]
+
+        # cek semua kemungkinan langkah dari tetangga
+        for neighbor in get_neighbors(current):
+            new_g = g + 1
+
+            # jika belum dikunjungi atau menemukan jalur yang lebih murah (g lebih kecil)
+            if neighbor not in visited or new_g < visited[neighbor]:
+                visited[neighbor] = new_g
+                h = get_manhattan_distance(neighbor)
+                f_total = new_g + h
+
+                # Masukkan ke antrean prioritas
+                heapq.heappush(pq, (f_total, new_g, neighbor, path + [current]))
+
+    return None
+
+# ================== UJI COBA ==================
+
+# Initial state (0 adalah kotak kosong)
+initial_state = (1, 2, 3, 4, 0, 6, 7, 5, 8)
+
+print("Mencari solusi dengan A* (Manhattan Distance)...")
+steps = solve_8_puzzle(initial_state)
+
+# Tampilkan hasil
+if steps:
+    print(f"Ditemukan solusi dalam {len(steps)-1} langkah!\n")
+    for i, s in enumerate(steps):
+        print(f"Langkah {i}:")
+        print(f"{s[0]} {s[1]} {s[2]}")
+        print(f"{s[3]} {s[4]} {s[5]}")
+        print(f"{s[6]} {s[7]} {s[8]}")
+        print("-" * 10)
+else:
+    print("Tidak ditemukan solusi.")
+
+
+
+
+3).
+
+from collections import deque
+
+# 1. Fungsi mengecek apakah kondisi aman (Missionaris tidak dimakan)
+def constraint(m, c):
+    # Cek batas jumlah (tidak boleh < 0 atau > 3)
+    if m < 0 or c < 0 or m > 3 or c > 3:
+        return False
+
+    # Cek sisi kiri: Jika ada missionaris, jumlahnya tidak boleh kalah dari kanibal
+    if m > 0 and m < c:
+        return False
+
+    # Cek sisi kanan: (Total 3, jadi kanan = 3 - kiri)
+    m_kanan = 3 - m
+    c_kanan = 3 - c
+    # Jika ada missionaris di kanan, tidak boleh kalah dari kanibal di kanan
+    if m_kanan > 0 and m_kanan < c_kanan:
+        return False
+
+    return True
+
+# 2. Fungsi BFS untuk mencari jalur terpendek
+def bfs_selamatin_missionaris():
+    # state = (missionaris_kiri, kanibal_kiri, posisi_perahu)
+    initial_state = (3, 3, 'L')
+    goal_state = (0, 0, 'R')
+
+    # Antrean menyimpan (state_saat_ini, jalur_yang_sudah_ditempuh)
+    queue = deque([(initial_state, [])])
+    visited = set()
+
+    while queue:
+        (m, c, perahu), path = queue.popleft()
+
+        # Jika sampai target, kembalikan jalurnya
+        if (m, c, perahu) == goal_state:
+            return path + [(m, c, perahu)]
+
+        if (m, c, perahu) not in visited:
+            visited.add((m, c, perahu))
+
+            # Kemungkinan muatan perahu: (M, C) - maksimal 2 orang, minimal 1
+            moves = [(2, 0), (0, 2), (1, 1), (1, 0), (0, 1)]
+
+            for dm, dc in moves:
+                if perahu == 'L':
+                    # Perahu ke kanan: jumlah di kiri berkurang
+                    new_state = (m - dm, c - dc, 'R')
+                else:
+                    # Perahu ke kiri: jumlah di kiri bertambah
+                    new_state = (m + dm, c + dc, 'L')
+
+                # Cek apakah langkah baru valid dan belum pernah dikunjungi
+                if constraint(new_state[0], new_state[1]):
+                    if new_state not in visited:
+                        # Masukkan ke antrean, tambahkan state lama ke dalam path
+                        queue.append((new_state, path + [(m, c, perahu)]))
+
+    return None
+
+# 3. Bagian Eksekusi
+print("=== SOLUSI BFS MISSIONARIES AND CANNIBALS ===")
+solusi = bfs_selamatin_missionaris()
+
+if solusi:
+    for i, step in enumerate(solusi):
+        # Ini akan mencetak: Langkah 0: (3, 3, 'L')
+        print(f"Langkah {i}: {step}")
+    
+    # Ini akan mencetak jumlah total item dalam list solusi
+    print(f"Jumlah langkah: {len(solusi)}")
+else:
+    print("Tidak ditemukan solusi.")
